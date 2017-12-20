@@ -64,9 +64,11 @@ export default Mixin.create({
   },
 
   _startListening() {
-    this._setInitialViewport(window);
+    const context = Ember.testing ? document.getElementById('ember-testing-container') : window;
+
+    this._setInitialViewport(context);
     this._addObserverIfNotSpying();
-    this._bindScrollDirectionListener(window, get(this, 'viewportScrollSensitivity'));
+    this._bindScrollDirectionListener(context, get(this, 'viewportScrollSensitivity'));
 
     if (!get(this, 'viewportUseRAF')) {
       get(this, 'viewportListeners').forEach((listener) => {
@@ -91,22 +93,28 @@ export default Mixin.create({
       return;
     }
 
-    const $contextEl = $(context);
-    const boundingClientRect = element.getBoundingClientRect();
+    const elementRect = element.getBoundingClientRect();
+    let contextRect;
 
-    this._triggerDidAccessViewport(
-      isInViewport(
-        boundingClientRect,
-        $contextEl.innerHeight(),
-        $contextEl.innerWidth(),
-        get(this, 'viewportTolerance')
-      )
-    );
+    if (context === window) {
+      contextRect = { top: 0, left: 0, bottom: context.innerHeight, right: context.innerWidth };
+    } else {
+      contextRect = context.getBoundingClientRect();
+    }
 
-    if (boundingClientRect && get(this, 'viewportUseRAF')) {
-      rAFIDS[get(this, 'elementId')] = window.requestAnimationFrame(
-        bind(this, this._setViewportEntered, context)
+    if (elementRect) {
+      this._triggerDidAccessViewport(
+        isInViewport(
+          elementRect,
+          contextRect,
+          get(this, 'viewportTolerance')
+        )
       );
+      if (get(this, 'viewportUseRAF')) {
+        rAFIDS[get(this, 'elementId')] = window.requestAnimationFrame(
+          bind(this, this._setViewportEntered, context)
+        );
+      }
     }
   },
 
